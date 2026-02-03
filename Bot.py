@@ -1,45 +1,52 @@
 import telebot
-from yt_dlp import YoutubeDL
-import os
+from flask import Flask
+from threading import Thread
 
 API_TOKEN = '8289181991:AAFVOIY9NTd_BCXBzLDGu6rB9BfNnBEGit0'
+CHANNEL_ID = '@onlineDeals25'
 bot = telebot.TeleBot(API_TOKEN)
+
+app = Flask('')
+@app.route('/')
+def home(): return "Bot is Alive!"
+
+def check_sub(user_id):
+    try:
+        member = bot.get_chat_member(CHANNEL_ID, user_id)
+        return member.status in ['member', 'administrator', 'creator']
+    except: return False
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🔥 TechVerse Downloader Active!\n\nInsta/YT link bhejo.")
+    if check_sub(message.from_user.id):
+        bot.reply_to(message, "🚀 TechVerse Active!\n\nYouTube ya Insta link bhejo, main aapko high-speed download link bana kar dunga.")
+    else:
+        markup = telebot.types.InlineKeyboardMarkup()
+        markup.add(telebot.types.InlineKeyboardButton("Join Channel 📢", url="https://t.me/onlineDeals25"))
+        bot.send_message(message.chat.id, "⚠️ Bhai, pehle hamare channel ko join karein!", reply_markup=markup)
 
 @bot.message_handler(func=lambda m: True)
-def download_video(message):
+def handle_links(message):
+    if not check_sub(message.from_user.id):
+        bot.reply_to(message, "❌ Pehle channel join karo bhai!")
+        return
+
     url = message.text
-    if "http" in url:
-        sent_msg = bot.reply_to(message, "⏳ YouTube Video process ho rahi hai (360p)...")
-        video_path = f"/tmp/{message.chat.id}.mp4"
+    if "youtube.com" in url or "youtu.be" in url or "instagram.com" in url:
+        # Jugaad: External Downloader Link (Yahan aap Monetag link bhi add kar sakte hain)
+        download_url = f"https://en.savefrom.net/1-youtube-video-downloader-360v/?url={url}"
         
-        try:
-            ydl_opts = {
-                # YouTube ke liye format 18 (360p) sabse stable hota hai
-                'format': '18/best[ext=mp4]', 
-                'outtmpl': video_path,
-                'quiet': True,
-                'no_warnings': True,
-                # Isse YouTube ko lagega ki normal mobile se request hai
-                'user_agent': 'Mozilla/5.0 (Linux; Android 10; SM-G960U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.181 Mobile Safari/537.36'
-            }
-            
-            with YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            
-            with open(video_path, 'rb') as video:
-                bot.send_video(message.chat.id, video, caption="✅ TechVerse: YouTube Download Successful")
-            
-            if os.path.exists(video_path):
-                os.remove(video_path)
-            bot.delete_message(message.chat.id, sent_msg.message_id)
-
-        except Exception as e:
-            bot.reply_to(message, "❌ YouTube Error: High quality video Render support nahi kar raha. Try small video.")
+        markup = telebot.types.InlineKeyboardMarkup()
+        # Yahan aap apna Monetag Direct Link bhi dal sakte hain
+        btn = telebot.types.InlineKeyboardButton("📥 Download Video (All Quality)", url=download_url)
+        markup.add(btn)
+        
+        bot.send_message(message.chat.id, "✅ Aapka Download Link Taiyar Hai!\n\nNiche button par click karke video save karein:", reply_markup=markup)
     else:
-        bot.reply_to(message, "⚠️ Sahi link bhejein.")
+        bot.reply_to(message, "⚠️ Sirf YouTube ya Insta link bhejiye!")
 
-bot.polling()
+def run(): app.run(host='0.0.0.0', port=8080)
+if __name__ == "__main__":
+    Thread(target=run).start()
+    bot.polling(none_stop=True)
+    
